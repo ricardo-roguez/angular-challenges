@@ -1,14 +1,15 @@
 import { NgFor } from '@angular/common';
 import { Component } from '@angular/core';
+import { WrpFnPipe } from './wrpFn.pipe';
 
 @Component({
   standalone: true,
-  imports: [NgFor],
+  imports: [NgFor, WrpFnPipe],
   selector: 'app-root',
   template: `
     <div *ngFor="let person of persons; let index = index; let isFirst = first">
-      {{ showName(person.name, index) }}
-      {{ isAllowed(person.age, isFirst) }}
+      {{ showName | wrpFn : person.name : index }}
+      {{ isAllowed | wrpFn : person.age : isFirst }}
     </div>
   `,
 })
