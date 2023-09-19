@@ -1,6 +1,6 @@
-import { AsyncPipe, NgIf } from '@angular/common';
-import { Component, HostListener } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { AsyncPipe, DOCUMENT, NgIf } from '@angular/common';
+import { Component, Inject, NgZone, OnDestroy, OnInit } from '@angular/core';
+import { distinctUntilChanged, fromEvent, map, Subject, takeUntil } from 'rxjs';
 
 @Component({
   standalone: true,
@@ -10,7 +10,7 @@ import { BehaviorSubject } from 'rxjs';
     <div>Top</div>
     <div>Middle</div>
     <div>Bottom</div>
-    <button (click)="goToTop()" *ngIf="displayButton$ | async">Top</button>
+    <button (click)="goToTop()" *ngIf="displayButton">Top</button>
   `,
   styles: [
     `
@@ -31,16 +31,36 @@ import { BehaviorSubject } from 'rxjs';
     `,
   ],
 })
-export class AppComponent {
-  title = 'scroll-cd';
+export class AppComponent implements OnInit, OnDestroy {
+  displayButton = false;
+  onDestroy$: Subject<void> = new Subject();
 
-  private displayButtonSubject = new BehaviorSubject<boolean>(false);
-  displayButton$ = this.displayButtonSubject.asObservable();
+  constructor(
+    @Inject(DOCUMENT)
+    private document: { documentElement: { pageYOffset: number } },
+    private readonly zone: NgZone
+  ) {}
 
-  @HostListener('window:scroll', ['$event'])
-  onScroll() {
-    const pos = window.pageYOffset;
-    this.displayButtonSubject.next(pos > 50);
+  ngOnInit(): void {
+    this.zone.runOutsideAngular(() => {
+      fromEvent(window, 'scroll')
+        .pipe(
+          map(
+            () => window.scrollY || this.document.documentElement.pageYOffset
+          ),
+          map((pageYOffset: number) => pageYOffset > 50),
+          distinctUntilChanged(),
+          takeUntil(this.onDestroy$),
+          map((value: boolean) =>
+            this.zone.run(() => (this.displayButton = value))
+          )
+        )
+        .subscribe();
+    });
+  }
+  ngOnDestroy(): void {
+    this.onDestroy$.next();
+    this.onDestroy$.complete();
   }
 
   goToTop() {
